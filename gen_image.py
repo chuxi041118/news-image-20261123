@@ -1,109 +1,101 @@
-#!/usr/bin/env python3
-"""Render entry.png for news-image-20261123 (Monday 23 November 2026).
+"""Draw the news-image-20261123 poster: a 1024x1024 one-image summary of
+world news on Monday 23 November 2026. Saves entry.png next to this script."""
 
-Local build tool only -- the graded entry is main.py, which copies the
-rendered entry.png to /output/entry.png. Run: python3 gen_image.py
-Requires Pillow and DejaVu fonts locally (not needed at grade time).
-"""
+from pathlib import Path
 
-import textwrap
 from PIL import Image, ImageDraw, ImageFont
 
-W, H = 1024, 1024
-BG = (247, 244, 236)        # off-white paper
-NAVY = (20, 33, 61)         # header band / headline ink
-INK = (30, 30, 30)          # body ink
-MUTED = (90, 88, 80)        # footer ink
-GOLD = (198, 148, 42)       # rule under header
-RULE = (200, 192, 175)      # row separators
+SIZE = 1024
+MARGIN = 64
+HERE = Path(__file__).resolve().parent
 
-BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+NAVY = (15, 27, 45)
+INK = (255, 255, 255)
+MUTED = (176, 190, 205)
+AMBER = (242, 183, 5)
+RULE = (58, 80, 108)
 
-TITLE_FONT = ImageFont.truetype(BOLD, 80)
-KICKER_FONT = ImageFont.truetype(BOLD, 28)
-TAG_FONT = ImageFont.truetype(BOLD, 28)
-HEAD_FONT = ImageFont.truetype(BOLD, 40)
-SUM_FONT = ImageFont.truetype(REG, 30)
-NUM_FONT = ImageFont.truetype(BOLD, 58)
-FOOT_FONT = ImageFont.truetype(REG, 24)
+TITLE = "WORLD NEWS"
+DATE = "MONDAY 23 NOVEMBER 2026"
 
-STORIES = [
-    ("1", "CLIMATE", (46, 125, 50), "COP31 ends with no deal",
-     "Climate talks in Antalya collapse after the final text drops all mention of fossil fuels."),
-    ("2", "CONFLICT", (179, 38, 30), "Russian warship sunk at Benghazi",
-     "Satellite images show the corvette Merkury sunk at its berth after a suspected Ukrainian sea-drone attack."),
-    ("3", "POLITICS", (21, 101, 192), "Democrats win 258 House seats",
-     "Their biggest House majority since 1992, sealed by a recount win in North Carolina."),
-    ("4", "MARKETS", (191, 84, 0), "AI sell-off shakes world markets",
-     "The Nasdaq Composite posts its worst week since March 2020, down 10%, as AI stocks slide."),
-    ("5", "DISASTER", (106, 27, 154), "Factory fire in Indonesia",
-     "At least 24 dead and dozens missing after a blaze at a candy factory in Banten."),
+ITEMS = [
+    ("COP31 ends with no deal",
+     "Climate talks in Antalya close without an agreement."),
+    ("Russian warship sunk",
+     "A Russian warship goes down off Benghazi, Libya."),
+    ("Democrats' 258-seat majority",
+     "Democrats hold 258 seats in the US House."),
+    ("AI stocks sell off",
+     "Shares slide as the AI rally cools."),
+    ("Deadly factory fire",
+     "A fatal blaze hits a factory in Indonesia."),
+]
+
+FONT_PATHS = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 ]
 
 
-def wrap(draw, text, font, max_w):
-    """Greedy word wrap measured with the real font; returns list of lines."""
-    words, lines, cur = text.split(), [], ""
+def load_font(bold, size):
+    path = FONT_PATHS[0] if bold else FONT_PATHS[1]
+    try:
+        return ImageFont.truetype(path, size)
+    except OSError:
+        return ImageFont.load_default()
+
+
+def wrap(draw, text, font, width):
+    words = text.split()
+    lines, line = [], ""
     for word in words:
-        trial = f"{cur} {word}".strip()
-        if draw.textlength(trial, font=font) <= max_w:
-            cur = trial
+        trial = f"{line} {word}".strip()
+        if draw.textlength(trial, font=font) <= width:
+            line = trial
         else:
-            if cur:
-                lines.append(cur)
-            cur = word
-    if cur:
-        lines.append(cur)
+            lines.append(line)
+            line = word
+    if line:
+        lines.append(line)
     return lines
 
 
 def main():
-    img = Image.new("RGB", (W, H), BG)
-    d = ImageDraw.Draw(img)
+    img = Image.new("RGB", (SIZE, SIZE), NAVY)
+    draw = ImageDraw.Draw(img)
 
-    # Header band
-    band_h = 150
-    d.rectangle([0, 0, W, band_h], fill=NAVY)
-    d.text((48, 18), "MONDAY  \u00b7  23 NOVEMBER 2026", font=KICKER_FONT, fill=(212, 175, 105))
-    d.text((48, 52), "WORLD IN BRIEF", font=TITLE_FONT, fill=(255, 255, 255))
-    d.rectangle([0, band_h, W, band_h + 6], fill=GOLD)
+    title_font = load_font(True, 76)
+    date_font = load_font(True, 30)
+    head_font = load_font(True, 34)
+    sub_font = load_font(False, 26)
+    num_font = load_font(True, 34)
+    foot_font = load_font(False, 22)
 
-    # Story rows
-    top = band_h + 6
-    row_h = (H - top - 44) // 5  # 44 px reserved for the footer
-    x_num, x_text = 48, 148
-    text_w = W - x_text - 48
-    for i, (num, tag, color, head, summary) in enumerate(STORIES):
-        y = top + i * row_h
-        if i:
-            d.line([48, y, W - 48, y], fill=RULE, width=2)
-        # number gutter
-        d.text((x_num, y + 18), num, font=NUM_FONT, fill=color)
-        # colour marker + tag
-        d.rectangle([x_text, y + 18, x_text + 13, y + 31], fill=color)
-        d.text((x_text + 25, y + 10), tag, font=TAG_FONT, fill=color)
-        # headline (one line, shrink until it fits)
-        hf, size = HEAD_FONT, 40
-        while d.textlength(head, font=hf) > text_w and size > 32:
-            size -= 2
-            hf = ImageFont.truetype(BOLD, size)
-        d.text((x_text, y + 44), head, font=hf, fill=NAVY)
-        # summary, up to two lines
-        lines = wrap(d, summary, SUM_FONT, text_w)[:2]
-        sy = y + 44 + size + 8
-        for line in lines:
-            d.text((x_text, sy), line, font=SUM_FONT, fill=INK)
-            sy += 35
+    draw.text((MARGIN, 56), TITLE, font=title_font, fill=INK)
+    draw.text((MARGIN, 150), DATE, font=date_font, fill=AMBER)
+    draw.line([(MARGIN, 200), (SIZE - MARGIN, 200)], fill=RULE, width=3)
 
-    # Footer
-    fy = H - 40
-    d.line([48, fy - 10, W - 48, fy - 10], fill=RULE, width=2)
-    d.text((48, fy), "Sources: BBC, Reuters  \u00b7  All stories reported 23 November 2026",
-           font=FOOT_FONT, fill=MUTED)
+    y = 236
+    for i, (head, sub) in enumerate(ITEMS, start=1):
+        draw.text((MARGIN, y), f"{i:02d}", font=num_font, fill=AMBER)
+        text_x = MARGIN + 76
+        width = SIZE - MARGIN - text_x
+        for line in wrap(draw, head, head_font, width):
+            draw.text((text_x, y), line, font=head_font, fill=INK)
+            y += 44
+        for line in wrap(draw, sub, sub_font, width):
+            draw.text((text_x, y), line, font=sub_font, fill=MUTED)
+            y += 36
+        y += 64
 
-    img.save("entry.png", optimize=True)
-    print("wrote entry.png")
+    draw.line([(MARGIN, SIZE - 92), (SIZE - MARGIN, SIZE - 92)], fill=RULE, width=2)
+    draw.text((MARGIN, SIZE - 72),
+              "One-image summary  ·  news-image-20261123",
+              font=foot_font, fill=MUTED)
+
+    out = HERE / "entry.png"
+    img.save(out)
+    print(f"wrote {out} ({SIZE}x{SIZE})")
 
 
 if __name__ == "__main__":
